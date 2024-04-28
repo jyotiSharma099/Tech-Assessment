@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+    stages {
+        stage('Clone repository') {
+            steps {
+                git([url: 'https://github.com/jyotiSharma099/java-Dockerized.git', branch: 'main'])
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'sudo docker build --platform linux/x86_64/v3 -t miguno/java-docker-build-tutorial:latest .'
+            }
+        }
+        stage('Docker test') {
+            steps {
+                sh 'sudo docker run -itd -p 8123:8123 miguno/java-docker-build-tutorial:latest'
+            }
+        }
+        stage('AWS Configure') {
+            steps {
+                script {
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: 'aws',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 767397830848.dkr.ecr.us-east-1.amazonaws.com'
+                        sh 'sudo docker tag miguno/java-docker-build-tutorial:latest 767397830848.dkr.ecr.us-east-1.amazonaws.com/java:latest'
+                        sh 'sudo docker push 767397830848.dkr.ecr.us-east-1.amazonaws.com/java:latest'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy with SAM') {
+            steps {
+                script {
+                    sh 'sam --version'
+                    sh 'sam deploy --template-file ECS.yml --stack-name my-ecs-stack --capabilities CAPABILITY_IAM --region us-east-1'
+               }
+            }
+        }
+    }
+}

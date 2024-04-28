@@ -1,111 +1,143 @@
-# Project Template: Create a Docker image for a Java application
+# CI/CD Pipeline Setup for Containerized Java Applications in ECS using Jenkins
 
-[![GitHub forks](https://img.shields.io/github/forks/miguno/java-docker-build-tutorial)](https://github.com/miguno/java-docker-build-tutorial/fork)
-[![Docker workflow status](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/docker-image.yml/badge.svg)](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/docker-image.yml)
-[![Maven workflow status](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/maven.yml/badge.svg)](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/maven.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+## Prerequisites:
+- launched Ubuntu server for Jenkins.
 
-A template project to create a Docker image for a Java application.
-The example application exposes an HTTP endpoint.
+![Screenshot from 2024-04-28 15-16-32](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/b5544f19-10d9-45fa-b5f0-fc6e6c067a98)
 
-> **Golang developer?** Check out https://github.com/miguno/golang-docker-build-tutorial
+- Jenkins and Docker installed and configured using script `Docker_jenkins_install.sh`
 
-Features:
+```bash
+#!/bin/bash
 
-- The Docker build uses a
-  [multi-stage build setup](https://docs.docker.com/build/building/multi-stage/)
-  to minimize the size of the generated Docker image, which is 176MB
-- Supports [Docker BuildKit](https://docs.docker.com/build/)
-- Java 17 (Eclipse Temurin)
-- [JUnit 5](https://github.com/junit-team/junit5) for demonstrating how to integrate unit testing
-- Maven for build management
-- [GitHub Actions workflows](https://github.com/miguno/java-docker-build-tutorial/actions) for
-  [Maven](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/maven.yml)
-  and
-  [Docker](https://github.com/miguno/java-docker-build-tutorial/actions/workflows/docker-image.yml)
-- Optionally, uses
-  [just](https://github.com/casey/just)
-  ![](https://img.shields.io/github/stars/casey/just)
-  for running common commands conveniently, see [justfile](justfile).
-- Uses [.env](.env) as central configuration to set variables used by
-  [justfile](justfile) and other helper scripts in this project.
+#Docker Installation
+sudo apt update 
+sudo apt  install docker.io -y
 
-# Requirements
+#Jenkins Installation 
+# For Jenkins firstly you need Java so 
+sudo apt update
+sudo apt install fontconfig openjdk-17-jre
 
-Docker must be installed on your local machine. That's it. You do not need a
-Java JDK or Maven installed.
+#Jenkins
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt-get update
+sudo apt-get install jenkins -y
 
-# Usage and Demo
+#for start jenkins
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
 
-**Step 1:** Create the Docker image according to [Dockerfile](Dockerfile).
-This step uses Maven to build, test, and package the
-[Java application](src/main/java/com/miguno/App.java) according to
-[pom.xml](pom.xml). The resulting image is 176MB in size, of which 170MB are
-the underlying `eclipse-temurin` image.
-
-```shell
-# ***Creating an image may take a few minutes!***
-$ docker build --platform linux/x86_64/v8 -t miguno/java-docker-build-tutorial:latest .
-
-# You can also build with the new BuildKit.
-# https://docs.docker.com/build/
-$ docker buildx build --platform linux/x86_64/v8 -t miguno/java-docker-build-tutorial:latest .
 ```
 
-Optionally, you can check the size of the generated Docker image:
+![Screenshot from 2024-04-28 15-32-59](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/5eda5820-3f8d-45bc-8a8a-a8f879b8ee9d)
 
-```shell
-$ docker images miguno/java-docker-build-tutorial
-REPOSITORY                          TAG       IMAGE ID       CREATED         SIZE
-miguno/java-docker-build-tutorial   latest    1403a608d055   4 minutes ago   176MB
+
+- AWS CLI installed on Jenkins server.
+
+## Pipeline Overview:
+1. **Source**: The pipeline will be triggered by changes in the source code repository.
+2. **Build**: Jenkins will build the Java application and create a Docker image.
+3. **Test**: The built Docker image will be tested to ensure application integrity.
+4. **Deploy**: The Docker image will be deployed to ECS.
+
+## Step 1: Jenkins Configuration:
+
+![Screenshot from 2024-04-28 15-35-36](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/c20ef191-3c08-491e-b14d-68e6972a569f)
+
+
+## a) **Install the necessary plugins**:
+
+  - Docker Plugin
+  - Git Plugin
+  - Amazon ECR Plugin
+  - Amazon Elastic Container Service (ECS) / Fargate Plugin
+  - AWS plugin
+  - AWS SAM Plugin
+
+
+![Screenshot from 2024-04-28 17-25-24](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/1fd58eb5-27d8-4113-ab1e-880729f17375)
+
+
+     
+
+
+## b) **Configure Jenkins to communicate with your AWS account**:
+  - Go to Jenkins dashboard > Manage Jenkins > Configure System.
+  - Add AWS credentials with the necessary permissions.
+
+      ![Screenshot from 2024-04-28 16-31-21](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/09427c13-0fd9-45b6-b9e5-a7663a25a564)
+
+
+
+## c) **Dockerized Source code on GitHub**
+
+### WebHook Integrated
+
+![Screenshot from 2024-04-28 16-39-44](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/736acb1e-6c29-4d53-893f-d80c7ef9a688)
+
+
+
+## Step 2: Jenkinsfile Setup:
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Clone repository') {
+            steps {
+                git([url: 'https://github.com/jyotiSharma099/java-Dockerized.git', branch: 'main'])
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'sudo docker build --platform linux/x86_64/v3 -t miguno/java-docker-build-tutorial:latest .'
+            }
+        }
+        stage('Docker test') {
+            steps {
+                sh 'sudo docker run -itd -p 8123:8123 miguno/java-docker-build-tutorial:latest'
+            }
+        }
+        stage('AWS Configure') {
+            steps {
+                script {
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: 'aws',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 767397830848.dkr.ecr.us-east-1.amazonaws.com'
+                        sh 'sudo docker tag miguno/java-docker-build-tutorial:latest 767397830848.dkr.ecr.us-east-1.amazonaws.com/java:latest'
+                        sh 'sudo docker push 767397830848.dkr.ecr.us-east-1.amazonaws.com/java:latest'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy with SAM') {
+            steps {
+                script {
+                    sh 'sam --version'
+                    sh 'sam deploy --template-file ECS.yml --stack-name my-ecs-stack --capabilities CAPABILITY_IAM --region us-east-1'
+               }
+            }
+        }
+    }
+}
+
 ```
 
-**Step 2:** Start a container for the Docker image.
+![Screenshot from 2024-04-28 19-11-20](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/a39cecd2-5fc5-47e7-bb45-8700d2d3f991)
 
-```shell
-$ docker run -p 8123:8123 miguno/java-docker-build-tutorial:latest
-```
 
-**Step 3:** Open another terminal and access the example API endpoint of the
-running container.
 
-```shell
-$ curl http://localhost:8123/status
-{"status": "idle"}
-```
+![Screenshot from 2024-04-28 19-12-48](https://github.com/jyotiSharma099/scipio-erp/assets/86827121/18211c08-596e-47ff-935d-e5cd3049e89a)
 
-# Usage with just
-
-If you have [just](https://github.com/casey/just) installed, you can run the
-commands above more conveniently as per this project's [justfile](justfile):
-
-```shell
-$ just
-Available recipes:
-    default             # print available targets
-    docker-image-create # create a docker image (requires Docker)
-    docker-image-run    # run the docker image (requires Docker)
-    docker-image-size   # size of the docker image (requires Docker)
-    evaluate            # evaluate and print all just variables
-    send-request-to-app # send request to the app's HTTP endpoint (requires running container)
-    system-info         # print system information such as OS and architecture
-```
-
-Example:
-
-```shell
-$ just docker-image-create
-```
-
-# Notes
-
-You can also build, test, package, and run the Java application locally
-(without Docker) if you have JDK 17+ and Maven installed.
-
-```shell
-# Build, test, package the application locally
-$ mvn clean package
-
-# Run the example application locally
-$ java -jar target/app.jar
-```
